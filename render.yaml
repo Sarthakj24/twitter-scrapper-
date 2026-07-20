@@ -19,6 +19,10 @@ services:
     envVars:
       - key: DB_PATH
         value: /app/data/hiring.db
+      # Cost guardrail: cap reads per run. 1 page x 100 = <=100 reads (~$0.50)
+      # worst case. With since_id, normal runs fetch only what's new.
+      - key: X_MAX_PAGES
+        value: "1"
       - key: LLM_PROVIDER
         value: groq
       - key: GROQ_MODEL
