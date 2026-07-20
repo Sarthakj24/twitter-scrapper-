@@ -1,7 +1,7 @@
 # twitter-scrapper — X hiring-digest service
 
 Monitors your X (Twitter) **home timeline**, classifies hiring-related posts with
-Claude, stores them in SQLite, and emails you a daily digest. Deploys on Railway.
+Claude, stores them in SQLite, and emails you a daily digest. Deploys on Render.
 
 > Despite the repo name, this uses the **official X API v2** (OAuth 2.0 user
 > context) — not scraping.
@@ -66,18 +66,28 @@ uvicorn app.main:app --reload --port 8000
 curl -X POST 'http://localhost:8000/run?send=false'   # dry run, no email
 ```
 
-## Deploy on Railway
+## Deploy on Render
 
-1. **Push this repo** and create a Railway project from it (uses the `Dockerfile`).
-2. **Add a Volume** mounted at `/app/data` and set `DB_PATH=/app/data/hiring.db`
-   so SQLite (and the rotated refresh token) survive restarts/redeploys.
-3. **Set env vars** from `.env.example` (X_*, ANTHROPIC_API_KEY, SMTP_*, EMAIL_*).
-4. Healthcheck path is `/health` (already in `railway.toml`).
-5. **Daily digest** — add a second service in the same project as a **Cron**:
-   - Schedule (Railway cron, UTC): `0 13 * * *` (e.g. 1pm UTC).
-   - Command: `curl -fsS -X POST "$WEB_URL/run"`
-     where `WEB_URL` is your web service's URL (reference it via a Railway
-     variable). The cron container spins up, hits `/run`, and exits.
+Everything is wired in `render.yaml` (a Render Blueprint) — a `web` service plus
+a daily `cron`.
+
+1. **Push this repo**, then in Render: **New + → Blueprint** and pick it. Render
+   reads `render.yaml` and creates both services.
+2. **Use a paid instance (Starter+) for the web service.** It mounts a persistent
+   **Disk** at `/app/data` (already in the blueprint) where SQLite lives. This is
+   not optional: the X refresh token *rotates on every use* and is stored in that
+   DB — on the free tier the filesystem is ephemeral, so a restart wipes the
+   token and auth breaks (the env seed can't be reused once rotated).
+3. **Set the secret env vars** in the Render dashboard (they're marked
+   `sync: false` in the blueprint): `X_CLIENT_ID`, `X_CLIENT_SECRET`,
+   `X_REFRESH_TOKEN`, `ANTHROPIC_API_KEY`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`,
+   `EMAIL_FROM`, `EMAIL_TO` (and optional `X_LIST_ID`).
+4. Health check is `/health` (in the blueprint).
+5. **Daily digest** — the `twitter-scrapper-daily` cron runs `python
+   trigger_run.py` at `0 13 * * *` (UTC). Set its `WEB_URL` env var to the web
+   service's public URL (e.g. `https://twitter-scrapper.onrender.com`). A Render
+   Disk can't be shared between services, so the cron drives the run over HTTP
+   rather than importing the pipeline directly.
 
 ## Cost & switching to a List
 

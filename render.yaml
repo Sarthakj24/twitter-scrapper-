@@ -1,0 +1,59 @@
+# Render Blueprint. Deploy: Render dashboard → New + → Blueprint → pick this repo.
+#
+# IMPORTANT: the web service needs a PAID instance (Starter+) so it can mount a
+# persistent Disk. The rotating X refresh token is stored in SQLite on that
+# disk — on the free tier the filesystem is ephemeral, so a restart/redeploy
+# wipes it and auth breaks (the stale env seed can't be reused after rotation).
+services:
+  - type: web
+    name: twitter-scrapper
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter            # Starter or higher: required for the persistent disk below
+    healthCheckPath: /health
+    autoDeploy: true
+    disk:
+      name: data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: DB_PATH
+        value: /app/data/hiring.db
+      - key: CLAUDE_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_STARTTLS
+        value: "true"
+      # --- secrets: set these in the Render dashboard (not committed) ---
+      - key: X_CLIENT_ID
+        sync: false
+      - key: X_CLIENT_SECRET
+        sync: false
+      - key: X_REFRESH_TOKEN
+        sync: false
+      - key: X_LIST_ID          # optional: read a List instead of the home timeline
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_TO
+        sync: false
+
+  # Daily digest: hits the web service's /run over HTTP (see trigger_run.py).
+  - type: cron
+    name: twitter-scrapper-daily
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    schedule: "0 13 * * *"     # 13:00 UTC daily; adjust as you like
+    dockerCommand: python trigger_run.py
+    envVars:
+      - key: WEB_URL
+        sync: false            # e.g. https://twitter-scrapper.onrender.com
