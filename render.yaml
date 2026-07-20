@@ -19,8 +19,10 @@ services:
     envVars:
       - key: DB_PATH
         value: /app/data/hiring.db
-      - key: CLAUDE_MODEL
-        value: claude-haiku-4-5-20251001
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_STARTTLS
@@ -34,7 +36,7 @@ services:
         sync: false
       - key: X_LIST_ID          # optional: read a List instead of the home timeline
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: GROQ_API_KEY
         sync: false
       - key: SMTP_HOST
         sync: false

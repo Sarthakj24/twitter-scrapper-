@@ -1,4 +1,6 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 httpx==0.28.1
-anthropic==0.42.0
+# Groq is called over its OpenAI-compatible REST API with httpx (no SDK needed).
+# Only needed if you set LLM_PROVIDER=anthropic:
+# anthropic==0.42.0

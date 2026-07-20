@@ -9,16 +9,17 @@ Claude, stores them in SQLite, and emails you a daily digest. Deploys on Render.
 ## How it works
 
 ```
-X home timeline ──▶ keyword pre-filter ──▶ Claude (haiku) ──▶ SQLite ──▶ email digest
-   (API v2)          (cheap skip)          (JSON verdict)     (dedup)     (SMTP)
+X home timeline ──▶ keyword pre-filter ──▶ LLM ──▶ SQLite ──▶ email digest
+   (API v2)          (cheap skip)      (JSON verdict) (dedup)    (SMTP)
 ```
 
 - **Fetch**: `GET /2/users/:id/timelines/reverse_chronological`, `max_results=100`,
   paginating until it reaches a tweet id already stored (bounded by `since_id`).
 - **Classify**: a cheap keyword pre-filter discards clearly-non-hiring tweets;
-  everything ambiguous goes to `claude-haiku-4-5-20251001` which returns strict
-  JSON (`is_hiring`, `role`, `company`, `location`, `seniority`, `apply_url`,
-  `summary`).
+  everything ambiguous goes to an LLM which returns strict JSON (`is_hiring`,
+  `role`, `company`, `location`, `seniority`, `apply_url`, `summary`). Provider
+  is selectable via `LLM_PROVIDER` — **`groq`** (default, free tier, called over
+  its OpenAI-compatible REST API with `httpx`) or **`anthropic`**.
 - **Store**: `seen(id, created_at, is_hiring, emailed, data)` — dedup on `id`,
   full classified record kept as JSON in `data`.
 - **Email**: HTML + text digest of hiring posts not yet emailed, then marks them
@@ -80,7 +81,7 @@ a daily `cron`.
    token and auth breaks (the env seed can't be reused once rotated).
 3. **Set the secret env vars** in the Render dashboard (they're marked
    `sync: false` in the blueprint): `X_CLIENT_ID`, `X_CLIENT_SECRET`,
-   `X_REFRESH_TOKEN`, `ANTHROPIC_API_KEY`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`,
+   `X_REFRESH_TOKEN`, `GROQ_API_KEY`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`,
    `EMAIL_FROM`, `EMAIL_TO` (and optional `X_LIST_ID`).
 4. Health check is `/health` (in the blueprint).
 5. **Daily digest** — the `twitter-scrapper-daily` cron runs `python

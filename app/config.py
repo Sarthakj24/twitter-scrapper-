@@ -43,7 +43,16 @@ class Config:
     # Safety cap on pagination so a first-ever run can't loop forever.
     max_pages: int = field(default_factory=lambda: int(os.getenv("X_MAX_PAGES", "10")))
 
-    # --- Anthropic (classification) ---
+    # --- Classification LLM (provider-selectable) ---
+    # "groq" (default, free tier) or "anthropic". Same JSON contract either way,
+    # so switching providers is just this env var + the matching API key.
+    llm_provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "groq").lower())
+
+    # Groq (OpenAI-compatible, free tier): key from https://console.groq.com/keys
+    groq_api_key: str = field(default_factory=lambda: os.getenv("GROQ_API_KEY", ""))
+    groq_model: str = field(default_factory=lambda: os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"))
+
+    # Anthropic (optional fallback): key from https://console.anthropic.com
     anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
     claude_model: str = field(
         default_factory=lambda: os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
@@ -69,7 +78,9 @@ class Config:
         missing = []
         if not self.x_client_id:
             missing.append("X_CLIENT_ID")
-        if not self.anthropic_api_key:
+        if self.llm_provider == "groq" and not self.groq_api_key:
+            missing.append("GROQ_API_KEY")
+        if self.llm_provider == "anthropic" and not self.anthropic_api_key:
             missing.append("ANTHROPIC_API_KEY")
         if missing:
             raise RuntimeError(
